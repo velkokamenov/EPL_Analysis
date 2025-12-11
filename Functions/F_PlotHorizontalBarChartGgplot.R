@@ -35,6 +35,9 @@ plotHorizontalBarChartsGgplot = function(StatsDF, ycol, xcol, graphTitle){
     }
   }
   
+  # Name the third column
+  colnames(plotdf)[3] <- "V3"
+  
   plotdfpositions = plotdf %>%
     mutate(PlayerName = paste0(V3,". ",PlayerName)) %>%
     select(PlayerName, VarName)
