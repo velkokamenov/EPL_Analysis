@@ -36,11 +36,11 @@ source("./Functions/F_PlotHorizontalBarChart.R")
 ```
 
 ```{r load data}
-footballersData= fread("./Data/All_GW_Files_DF.csv", na.strings=c("NULL",""))
-matchData= fread("./Data/EPL_Match_Results.csv", na.strings=c("NULL",""))
-positionIDs = fread("./Data/Player_Position_IDs.csv", na.strings=c("NULL",""))
-playersTeamsAndPositions = fread("./Data/PlayerTeamsPositions.csv", na.strings=c("NULL",""))
-teamIDs = fread("./Data/Team_IDs.csv", na.strings=c("NULL",""))
+footballersData= fread("./Input Data/All_GW_Files_DF.csv", na.strings=c("NULL",""))
+matchData= fread("./Input Data/EPL_Match_Results.csv", na.strings=c("NULL",""))
+positionIDs = fread("./Input Data/Player_Position_IDs.csv", na.strings=c("NULL",""))
+playersTeamsAndPositions = fread("./Input Data/PlayerTeamsPositions.csv", na.strings=c("NULL",""))
+teamIDs = fread("./Input Data/Team_IDs.csv", na.strings=c("NULL",""))
 
 ```
 
