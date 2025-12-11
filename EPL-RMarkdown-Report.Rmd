@@ -146,8 +146,6 @@ EPL_Away_Table_Formatted = EPL_Away_Table %>%
 
 #### Deep dive in the statistics of the most interesting football league in the world. Find out what makes a team a champion and a relegation candidate with a handful of detailed team and player statistics.
 
-![](https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Premier_League_Logo.svg/250px-Premier_League_Logo.svg.png)
-
 ### Tables
 
 # {.tabset}
