@@ -710,6 +710,7 @@ TeamDataForAnalysis = EPL_Full_Table %>%
 ```
 
 ```{r make scatter plots}
+# Create scatter plots with trend lines and R-squared values
 PassAccuracyScatter = plotlyScatters(TeamDataForAnalysis,"Pass Accuracy","Points","Team","Pass Accuracy vs. Points Won")
 
 CompletedPassesScatter = plotlyScatters(TeamDataForAnalysis,"Completed Passes","Points","Team","Completed Passes vs. Points Won")
