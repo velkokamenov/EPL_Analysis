@@ -1,0 +1,21 @@
+# R session files
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# RStudio project files
+*.Rproj
+*.html
+
+# Ignore everything inside Data and Analysis Folders
+Data/
+Input Data/
+Output Data/
+Power BI Reports/
+Archive/
+rsconnect/
+
+# txt files
+Data Links.txt
+PBI Report Link.txt

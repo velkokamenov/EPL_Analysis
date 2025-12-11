@@ -1,0 +1,895 @@
+---
+title: "English Premier League Season 2018/2019 Analysis"
+author: "Created by: Velko Kamenov"
+date: "May 12, 2019, 38 Rounds Played"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+# Set some global options that can be overwritten in individual chunks
+knitr::opts_chunk$set(echo = FALSE 
+                      ,message = FALSE 
+                      ,warning = FALSE
+                      ,fig.width=10
+                      ,fig.height=7
+                      )
+```
+
+
+```{r libraries}
+# Load needed for the analysis libraries in this chunk
+xfun::pkg_attach2(c('data.table', 
+                    'DT', 
+                    'rmarkdown',
+                    'kableExtra',
+                    'tibble',
+                    'dplyr',
+                    'plotly',
+                    'shiny'))
+
+# Load user defined functions
+source("./Functions/F_PlotBarChart.R")
+source("./Functions/F_PlotHorizontalBarChartGgplot.R")
+source("./Functions/F_PlotScattersPlotly.R")
+source("./Functions/F_PlotHorizontalBarChart.R")
+```
+
+```{r load data}
+footballersData= fread("./Data/All_GW_Files_DF.csv", na.strings=c("NULL",""))
+matchData= fread("./Data/EPL_Match_Results.csv", na.strings=c("NULL",""))
+positionIDs = fread("./Data/Player_Position_IDs.csv", na.strings=c("NULL",""))
+playersTeamsAndPositions = fread("./Data/PlayerTeamsPositions.csv", na.strings=c("NULL",""))
+teamIDs = fread("./Data/Team_IDs.csv", na.strings=c("NULL",""))
+
+```
+
+```{r Premier League Table}
+# Home table
+EPL_Home_Table = matchData %>%
+  dplyr::filter(FTR == "H") %>%
+  group_by(HomeTeam) %>%
+  summarise(Wins = n()) %>%
+  ungroup() %>%
+  left_join(matchData %>%
+  filter(FTR == "D") %>%
+  group_by(HomeTeam) %>%
+  summarise(Draws = n()) %>%
+  ungroup(), by = "HomeTeam") %>%
+  left_join(matchData %>%
+  filter(FTR == "A") %>%
+  group_by(HomeTeam) %>%
+  summarise(Losses = n()) %>%
+  ungroup(), by = "HomeTeam") %>%
+  left_join(matchData %>%
+  group_by(HomeTeam) %>%
+  summarise(GoalsScored = sum(FTHG),
+            GoalsConceded = sum(FTAG))
+  ) %>%
+  plyr::rename(c("HomeTeam" = "Team"))
+
+# Away Table
+EPL_Away_Table = matchData %>%
+  filter(FTR == "H") %>%
+  group_by(AwayTeam) %>%
+  summarise(Losses = n()) %>%
+  ungroup() %>%
+  left_join(matchData %>%
+  filter(FTR == "D") %>%
+  group_by(AwayTeam) %>%
+  summarise(Draws = n()) %>%
+  ungroup(), by = "AwayTeam") %>%
+  left_join(matchData %>%
+  filter(FTR == "A") %>%
+  group_by(AwayTeam) %>%
+  summarise(Wins = n()) %>%
+  ungroup(), by = "AwayTeam") %>%
+  left_join(matchData %>%
+  group_by(AwayTeam) %>%
+  summarise(GoalsScored = sum(FTAG),
+            GoalsConceded = sum(FTHG))
+  ) %>%
+  plyr::rename(c("AwayTeam" = "Team"))
+
+# Full Table
+EPL_Full_Table = EPL_Home_Table %>%
+  bind_rows(EPL_Away_Table) %>%
+  group_by(Team) %>%
+  summarise(Wins = sum(Wins, na.rm = T),
+            Draws = sum(Draws, na.rm = T),
+            Losses = sum(Losses, na.rm = T),
+            GoalsScored = sum(GoalsScored, na.rm = T),
+            GoalsConceded = sum(GoalsConceded, na.rm = T)) %>%
+  ungroup() %>%
+  rowwise() %>%
+  mutate(Played = sum(Wins,Draws,Losses),
+         GD = GoalsScored - GoalsConceded,
+         Points = 3*Wins + 1*Draws) %>%
+  ungroup() %>%
+  arrange(desc(Points), desc(GD), desc(GoalsScored)) %>%
+  select(Team, Played, Wins, Draws, Losses, GoalsScored, GoalsConceded, GD, Points) %>%
+  mutate(Position = seq.int(20)) %>%
+  select(Position, everything())
+
+# Format Home Team Table
+EPL_Home_Table_Formatted = EPL_Home_Table %>%
+  replace(., is.na(.), 0) %>%
+  rowwise() %>%
+  mutate(Played = sum(Wins,Draws,Losses),
+         GD = GoalsScored - GoalsConceded,
+         Points = 3*Wins + 1*Draws) %>%
+  ungroup() %>%
+  arrange(desc(Points), desc(GD), desc(GoalsScored)) %>%
+  select(Team, Played, Wins, Draws, Losses, GoalsScored, GoalsConceded, GD, Points) %>%
+  mutate(Position = seq.int(20)) %>%
+  select(Position, everything())
+  
+# Format Away Team Table
+EPL_Away_Table_Formatted = EPL_Away_Table %>%
+  replace(., is.na(.), 0) %>%
+  rowwise() %>%
+  mutate(Played = sum(Wins,Draws,Losses),
+         GD = GoalsScored - GoalsConceded,
+         Points = 3*Wins + 1*Draws) %>%
+  ungroup() %>%
+  arrange(desc(Points), desc(GD), desc(GoalsScored)) %>%
+  select(Team, Played, Wins, Draws, Losses, GoalsScored, GoalsConceded, GD, Points) %>%
+  mutate(Position = seq.int(20)) %>%
+  select(Position, everything())
+
+
+```
+
+#### Deep dive in the statistics of the most interesting football league in the world. Find out what makes a team a champion and a relegation candidate with a handful of detailed team and player statistics.
+
+![](https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Premier_League_Logo.svg/250px-Premier_League_Logo.svg.png)
+
+### Tables
+
+# {.tabset}
+
+## EPL Full Table
+
+```{r show full table}
+EPL_Full_Table %>%
+  kable(format = "html") %>%
+  kable_styling() %>%
+  row_spec(18:20, bold = T, color = "white", background = "#D7261E")
+```
+
+## EPL Home Table
+
+```{r show home table}
+EPL_Home_Table_Formatted %>%
+  kable(format = "html") %>%
+  kable_styling()%>%
+  row_spec(18:20, bold = T, color = "white", background = "#D7261E")
+```
+
+## EPL Away Table
+
+```{r show away table}
+EPL_Away_Table_Formatted %>%
+  kable(format = "html") %>%
+  kable_styling()%>%
+  row_spec(18:20, bold = T, color = "white", background = "#D7261E")
+```
+
+</div>
+
+```{r summary basic teams statistics}
+Home_Matches_Stats = matchData %>%
+  group_by(HomeTeam) %>%
+  summarise(Shots = sum(HS),
+            ShotsOnTarget = sum(HST),
+            Fouls = sum(HF),
+            Corners = sum(HC),
+            WinCoeff = mean(B365H)) %>%
+  plyr::rename(c("HomeTeam" = "Team"))
+
+Away_Matches_Stats = matchData %>%
+  group_by(AwayTeam) %>%
+  summarise(Shots = sum(AS),
+            ShotsOnTarget = sum(AST),
+            Fouls = sum(AF),
+            Corners = sum(AC),
+            WinCoeff = mean(B365A)) %>%
+  plyr::rename(c("AwayTeam" = "Team"))
+
+
+Full_Match_Stats = Home_Matches_Stats %>%
+  bind_rows(Away_Matches_Stats) %>%
+  group_by(Team) %>%
+  summarise(Shots = sum(Shots),
+            ShotsOnTarget = sum(ShotsOnTarget),
+            Fouls = sum(Fouls),
+            Corners = sum(Corners),
+            WinCoeff = sum(WinCoeff)) %>%
+  ungroup()
+
+```
+
+```{r basic teams statistics plots}
+# Plot shots 
+ShotsPlot = plotBarChartsPlotly(Full_Match_Stats, 
+                                        "Team", 
+                                        "Shots", 
+                                        "EPL 2018/2019 - Shots")
+
+# Plot shots on target
+ShotsOnTargetPlot = plotBarChartsPlotly(Full_Match_Stats, 
+                                        "Team", 
+                                        "ShotsOnTarget", 
+                                        "EPL 2018/2019 - Shots on target")
+
+# Plot fouls
+FoulsPlot = plotBarChartsPlotly(Full_Match_Stats, 
+                                "Team", 
+                                "Fouls", 
+                                "EPL 2018/2019 - Fouls")
+
+# Plot corver kicks
+CornersPlot = plotBarChartsPlotly(Full_Match_Stats, 
+                                "Team", 
+                                "Corners", 
+                                "EPL 2018/2019 - Corners")
+
+# Plot average win coefficients
+WinCoeffPlot = plot_ly(Full_Match_Stats %>%
+                         mutate(WinCoeff = round(WinCoeff, digits = 2)), 
+                       x = ~Team, 
+                       y = ~WinCoeff, type = 'bar') %>%
+  layout(title = "EPL 2018/2019 - Average Win Coefficient",
+         xaxis = list(title = "",
+                      tickangle = 45,
+                      categoryorder = "array",
+                      categoryarray  = c(Full_Match_Stats %>%
+                              arrange(WinCoeff)%>%
+           select(Team))[[1]]),
+         yaxis = list(title = ""),
+         margin = list(l = 200, r = 200, b = 100, t = 50, pad = 8))
+
+
+```
+
+### Advanced Team Stats
+
+Find out which team managed the most passes, conducted the most shots, made the most errors and much more!
+
+## {.tabset}
+
+### Shots
+```{r show shots plot}
+div(ShotsPlot, align = "center")
+```
+
+### Shots On Target
+```{r show shots on target plot}
+div(ShotsOnTargetPlot, align = "center")
+```
+
+### Fouls 
+```{r show fouls plot}
+div(FoulsPlot, align = "center")
+```
+
+### Corners 
+```{r show corvers plot}
+div(CornersPlot, align = "center")
+```
+
+
+```{r caclulate advanced team stats from FPL data}
+AdvancedTeamData = footballersData %>%
+  left_join(playersTeamsAndPositions, by = c("name"="PlayerName")) %>%
+  left_join(teamIDs, by = c("TeamID"="TeamID")) %>%
+  left_join(positionIDs, by = c("PositionID"="PositionID")) %>%
+  group_by(TeamName) %>%
+  summarise(attempted_passes = sum(attempted_passes),
+            completed_passes = sum(completed_passes),
+            big_chances_created = sum(big_chances_created),
+            big_chances_missed = sum(big_chances_missed),
+            clearances_blocks_interceptions = sum(clearances_blocks_interceptions),
+            dribbles = sum(dribbles),
+            errors_leading_to_goal = sum(errors_leading_to_goal),
+            errors_leading_to_goal_attempt = sum(errors_leading_to_goal_attempt),
+            offsides = sum(offside),
+            open_play_crosses = sum(open_play_crosses),
+            own_goals = sum(own_goals),
+            penalties_conceded = sum(penalties_conceded),
+            penalties_missed = sum(penalties_missed),
+            penalties_saved = sum(penalties_saved),
+            red_cards = sum(red_cards),
+            yellow_cards = sum(yellow_cards),
+            saves = sum(saves),
+            recoveries = sum(recoveries),
+            tackles = sum(tackles),
+            tackled = sum(tackled)) %>%
+  ungroup() %>%
+  filter(!is.na(TeamName)) %>%
+  mutate(pass_accuracy = round(completed_passes/attempted_passes*100, digits = 0))
+
+```
+
+```{r advanced team data plots}
+# Plot attempted passes
+AttemptedPassesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "attempted_passes",
+                                          "EPL 2018/2019 - Attempted Passes")
+
+# Plot completed passes
+CompletedPassesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "completed_passes",
+                                          "EPL 2018/2019 - Completed Passes")
+
+# Plot passing accuracy
+PassingAccuracyPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "pass_accuracy",
+                                          "EPL 2018/2019 - Passing Accuracy")
+
+# Plot dribbles
+DribblesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "dribbles",
+                                          "EPL 2018/2019 - Dribbles")
+
+# Plot Open Play crosses
+OpenPlayCrossesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "open_play_crosses",
+                                          "EPL 2018/2019 - Open play crosses")
+
+# Plot Big Chances Misses
+BigChancesMissedPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "big_chances_missed",
+                                          "EPL 2018/2019 - Big chances missed")
+
+# Offsides
+OffsidesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "offsides",
+                                          "EPL 2018/2019 - Offsides")
+
+# Plot Errors Leading to Goals
+ErrorsLeadingToGoalsPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "errors_leading_to_goal",
+                                          "EPL 2018/2019 - Errors Leading to Goals")
+
+# Plot Errors Leading to Goal Attempts
+ErrorsLeadingToGoalAttemptsPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "errors_leading_to_goal_attempt",
+                                          "EPL 2018/2019 - Errors Leading to Goal Attempts")
+
+# Plot penalties conceded
+PenaltiesConcededPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "penalties_conceded",
+                                          "EPL 2018/2019 - Penalties Conceded")
+
+# Plot saves
+SavesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",
+                                          "saves",
+                                          "EPL 2018/2019 - Saves")
+
+# Plot clerances, blokcs interception
+ClearancesBlocksInterceptionsPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "clearances_blocks_interceptions",
+                                          "EPL 2018/2019 - Clearences, Blocks, Interceptions")
+
+# Plot tackles
+TacklesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "tackles",
+                                          "EPL 2018/2019 - Tackles")
+
+# Plot Recoveries
+RecoveriesPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "recoveries",
+                                          "EPL 2018/2019 - Recoveries")
+
+# Plot Yellow Cards
+YellowCardsPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "yellow_cards",
+                                          "EPL 2018/2019 - Yellow Cards")
+
+# Plot Red Cards
+RedCardsPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "red_cards",
+                                          "EPL 2018/2019 - Red Cards")
+
+# Penalties Saved
+PenaltiesSavedPlot = plotBarChartsPlotly(AdvancedTeamData,
+                                          "TeamName",          
+                                          "penalties_saved",
+                                          "EPL 2018/2019 - Penalties Saved")
+
+```
+
+### Attempted Passes
+```{r show attemted passes}
+div(AttemptedPassesPlot, align = "center")
+```
+
+### Completed Passes
+```{r show completed passes}
+div(CompletedPassesPlot, align = "center")
+```
+
+### Passing Accuracy
+```{r show passing accuracy}
+div(PassingAccuracyPlot, align = "center")
+```
+
+### Dribbles
+```{r show dribbles}
+div(DribblesPlot, align = "center")
+```
+
+### Crosses
+```{r show crosses}
+div(OpenPlayCrossesPlot, align = "center")
+```
+
+### Big Chances Missed
+```{r show big chances missed}
+div(BigChancesMissedPlot, align = "center")
+```
+
+### Offsides
+```{r show offsides}
+div(OffsidesPlot, align = "center")
+```
+
+### Errors Leading to Goal
+```{r show errors leading to goal}
+div(ErrorsLeadingToGoalsPlot, align = "center")
+```
+
+### Errors Leading to Goal Attempts
+```{r show errors leading to goal attempts}
+div(ErrorsLeadingToGoalAttemptsPlot, align = "center")
+```
+
+### Penalties Conceded
+```{r show penalties conceded}
+div(PenaltiesConcededPlot, align = "center")
+```
+
+### Clearences, Blocks, Interceptions
+```{r show clearances, blocks, interceptions}
+div(ClearancesBlocksInterceptionsPlot, align = "center")
+```
+
+### Tackles
+```{r show tackles}
+div(TacklesPlot, align = "center")
+```
+
+### Recoveries
+```{r show recoveries}
+div(RecoveriesPlot, align = "center")
+```
+
+### Yellow Cards
+```{r show yellow cards}
+div(YellowCardsPlot, align = "center")
+```
+
+### Red Cards
+```{r show red cards}
+div(RedCardsPlot, align = "center")
+```
+
+### Saves
+```{r show saves}
+div(SavesPlot, align = "center")
+```
+
+### Penalties Saved
+```{r show penalties saved}
+div(PenaltiesSavedPlot, align = "center")
+```
+
+</div>
+
+```{r calculate players statistics}
+# Calculate advanced player stats
+AdvancedPlayersStats = footballersData %>%
+  filter(minutes>0) %>%
+  group_by(name) %>%
+  summarise(goals_scored = sum(goals_scored),
+            assists = sum(assists),
+            big_chances_created = sum(big_chances_created),
+            big_chances_missed = sum(big_chances_missed),
+            key_passes= sum(key_passes),
+            attempted_passes = sum(attempted_passes),
+            completed_passes = sum(completed_passes),
+            dribbles = sum(dribbles),
+            tackled = sum(tackled),
+            tackles = sum(tackles),
+            recoveries = sum(recoveries),
+            clearances_blocks_interceptions = sum(clearances_blocks_interceptions),
+            fouls = sum(fouls),
+            errors_leading_to_goal = sum(errors_leading_to_goal),
+            errors_leading_to_goal_attempt = sum(errors_leading_to_goal_attempt),
+            saves = sum(saves),
+            clean_sheets = sum(clean_sheets), 
+            minutes = sum(minutes)) %>%
+  ungroup() %>%
+  mutate(passing_accuracy = round(completed_passes/attempted_passes*100, digits = 1)) %>%
+  left_join(playersTeamsAndPositions, by = c("name" = "PlayerName")) %>%
+  left_join(teamIDs, by = "TeamID") %>%
+  mutate(PlayerName = paste0(name," (",TeamName,")")) %>%
+  select(PlayerName, everything())
+  
+
+```
+
+
+```{r advanced players data plots}
+TopScorersPlot = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "goals_scored",
+                                               "EPL 2018/2019 - Top Scorers")
+
+TopAssistsPlot = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "assists",
+                                               "EPL 2018/2019 - Most Assists")
+
+TopBigChancesCreated = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "big_chances_created",
+                                               "EPL 2018/2019 - Most Big Chances Created")
+
+TopKeyPasses = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "key_passes",
+                                               "EPL 2018/2019 - Most Key Passes")
+
+TopCompletedPasses = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "completed_passes",
+                                               "EPL 2018/2019 - Most Completed Passes")
+
+TopPassAccuracy = plotHorizontalBarChartsGgplot(AdvancedPlayersStats %>%
+                                                  filter(attempted_passes>500),
+                                               "PlayerName",
+                                               "passing_accuracy",
+                                               "EPL 2018/2019 - Highest Passing Accuracy")
+
+TopTackled = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "tackled",
+                                               "EPL 2018/2019 - Most Tackled")
+
+TopTackles = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "tackles",
+                                               "EPL 2018/2019 - Most Tackles")
+
+TopRecoveries = plotHorizontalBarChartsGgplot(AdvancedPlayersStats %>%
+                                                filter(PositionID != 1),
+                                               "PlayerName",
+                                               "recoveries",
+                                               "EPL 2018/2019 - Most Recoveries")
+
+TopClearances = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "clearances_blocks_interceptions",
+                                               "EPL 2018/2019 - Most Clearances, Blocks, Interceptions")
+
+TopFouls = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "fouls",
+                                               "EPL 2018/2019 - Most Fouls")
+
+TopErrors = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "errors_leading_to_goal",
+                                               "EPL 2018/2019 - Most Errors Leading To Goal")
+
+TopSaves = plotHorizontalBarChartsGgplot(AdvancedPlayersStats,
+                                               "PlayerName",
+                                               "saves",
+                                               "EPL 2018/2019 - Most Saves")
+
+TopCleanSheets = plotHorizontalBarChartsGgplot(AdvancedPlayersStats %>%
+                                                 filter(PositionID == 1),
+                                               "PlayerName",
+                                               "clean_sheets",
+                                               "EPL 2018/2019 - Most Clean Sheets")
+
+```
+### Detailed Player Stats
+
+Check out the League's top scorers, best passers and strongest tacklers among other key performance metrics!
+
+#### {.tabset}
+
+##### Top Scorers
+```{r show top scorers}
+TopScorersPlot
+```
+
+##### Most Assists
+```{r show most assists}
+TopAssistsPlot
+```
+
+##### Most Chances
+```{r show most chances created}
+TopBigChancesCreated
+```
+
+##### Key Passes
+```{r show most key passes}
+TopKeyPasses
+```
+
+##### Most Passes
+```{r show most completed passes}
+TopCompletedPasses
+```
+
+##### Best Passing Accuracy
+```{r show highest passing accuracy}
+TopPassAccuracy
+```
+
+##### Most Tackled
+```{r show most tackled}
+TopTackled
+```
+
+##### Most Tackles
+```{r show most tackles}
+TopTackles
+```
+
+##### Most Recoveries
+```{r show most recoveries}
+TopRecoveries
+```
+
+##### Most Clearances
+```{r show most clerances}
+TopClearances
+```
+
+##### Most Fouls
+```{r show most fouls}
+TopFouls
+```
+
+##### Most Errors
+```{r show most erros}
+TopErrors
+```
+
+##### Most Saves
+```{r show most saves}
+TopSaves
+```
+
+##### Most Clean Sheets
+```{r show most clean sheets}
+TopCleanSheets
+```
+
+</div>
+
+```{r team data for analysis}
+TeamDataForAnalysis = EPL_Full_Table %>%
+  left_join(AdvancedTeamData, by = c("Team"="TeamName"))%>%
+  left_join(Full_Match_Stats, by = c("Team" = "Team")) %>%
+  mutate("Shot Accuracy" = round(ShotsOnTarget/Shots*100, digits = 0)) %>%
+  plyr::rename(c("attempted_passes" = "Attempted Passes",
+                 "completed_passes" = "Completed Passes",
+                 "big_chances_created" = "Big Chances Created",
+                 "dribbles" = "Dribbles",
+                 "errors_leading_to_goal" = "Errors leading to goal",
+                 "open_play_crosses" = "Open play crosses",
+                 "tackles" = "Tackles",
+                 "pass_accuracy" = "Pass Accuracy",
+                 "recoveries" = "Recoveries"))
+
+```
+
+```{r make scatter plots}
+PassAccuracyScatter = plotlyScatters(TeamDataForAnalysis,"Pass Accuracy","Points","Team","Pass Accuracy vs. Points Won")
+
+CompletedPassesScatter = plotlyScatters(TeamDataForAnalysis,"Completed Passes","Points","Team","Completed Passes vs. Points Won")
+
+ShotAccuracyScatter = plotlyScatters(TeamDataForAnalysis,"Shot Accuracy","Points","Team","Shot Accuracy vs. Points Won")
+
+DribblesScatter = plotlyScatters(TeamDataForAnalysis,"Dribbles","Points","Team","Dribbles vs. Points Won")
+
+CrossesScatter = plotlyScatters(TeamDataForAnalysis,"Open play crosses","Points","Team","Open play crosses vs. Points Won")
+
+RecoveriesScatter = plotlyScatters(TeamDataForAnalysis,"Recoveries","Points","Team","Recoveries vs. Points Won")
+
+TacklesScatter = plotlyScatters(TeamDataForAnalysis,"Tackles","Points","Team","Tackles vs. Points Won")
+
+```
+
+<h3> Points Won Predictors </h3>
+
+Find out what makes team a winner and has a positive impact on points won, what doesn't and what has no influence!
+
+##### {.tabset}
+
+###### Pass Accuracy
+```{r show pass accuracy predictor}
+div(PassAccuracyScatter, align = "center")
+```
+
+###### Completed Passes
+```{r show completed passes predictor}
+div(CompletedPassesScatter, align = "center")
+```
+
+###### Shot Accuracy
+```{r show shot accuracy predictor}
+div(ShotAccuracyScatter, align = "center")
+```
+
+###### Dribbles
+```{r show dribbles predictor}
+div(DribblesScatter, align = "center")
+```
+
+###### Crosses
+```{r show crosses predictor}
+div(CrossesScatter, align = "center")
+```
+
+###### Recoveries
+```{r show recoveries predictor}
+div(RecoveriesScatter, align = "center")
+```
+
+###### Tackles
+```{r show tackles predictor}
+div(TacklesScatter, align = "center")
+```
+
+</div>
+
+```{r format data tables with top 6 teams stats}
+
+FormatPlayerStats = AdvancedPlayersStats %>%
+  filter(minutes>=45) %>%
+  left_join(positionIDs, by = "PositionID") %>%
+  plyr::rename(c("name" = "Name",
+                 "goals_scored" = "GL",
+                 "assists" = "AS",
+                 "big_chances_created" = "BCC",
+                 "big_chances_missed" = "Big Chances Missed",
+                 "key_passes" = "KP",
+                 "attempted_passes" = "AP",
+                 "completed_passes" = "CP",
+                 "passing_accuracy" = "PA",
+                 "dribbles" = "DB",
+                 "tackled" = "TD",
+                 "tackles" = "TS",
+                 "recoveries" = "REC",
+                 "clearances_blocks_interceptions" = "CBI",
+                 "fouls" = "FL",
+                 "errors_leading_to_goal" = "ELG",
+                 "errors_leading_to_goal_attempt" = "ELGA",
+                 "saves" = "SV",
+                 "clean_sheets" = "CS",
+                 "minutes" = "MIN",
+                 "TeamName" = "Team Name",
+                 "PositionName" = "PST")) %>%
+  select(`Team Name`, Name,
+         MIN,PST, GL, AS,
+         BCC, DB,KP,CP,
+         PA,TS,REC,
+         CBI,FL,ELG,
+         SV,CS)
+
+ArsenalPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Arsenal") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+ChelseaPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Chelsea") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+LiverpoolPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Liverpool") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+ManchesterCityPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Manchester City") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+ManchesterUnitedPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Manchester United") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+TottenhamPlayersStats = FormatPlayerStats %>%
+  filter(`Team Name` == "Tottenham") %>%
+  select(-`Team Name`) %>%
+  datatable(rownames = F)
+
+```
+
+<h3>  Top 6 teams players statistics </h3>
+
+Dive into detailed numbers about the top 6 teams in the league in order to compare their strong and weak sides!
+
+##### {.tabset}
+
+###### Arsenal
+```{r}
+ArsenalPlayersStats
+```
+
+###### Chelsea
+```{r}
+ChelseaPlayersStats
+```
+
+###### Liverpool
+```{r}
+LiverpoolPlayersStats
+```
+
+###### Manchester City
+```{r}
+ManchesterCityPlayersStats
+```
+
+###### Manchester United
+```{r}
+ManchesterUnitedPlayersStats
+```
+
+###### Tottenham
+```{r}
+TottenhamPlayersStats
+```
+</div>
+
+<br/>
+**Columns Legend**:<br/>
+
+Acronym       | Meaning
+------------- | -------------
+Min           | Munites
+PST           | Position
+GL            | Goals
+AS            | Assist
+BCC           | Big Chances Created
+DB            | Dribbles
+KP            | Key Passes
+CP            | Completed Passes
+PA            | Passing Accuracy
+TD            | Tackled
+TS            | Tackles
+REC           | Recoveries
+CBI           | Clearences, Blocks Interception
+FL            | Fouls
+ELG           | Errors Leading To Goal
+SV            | Saves
+CS            | Clean Sheets
+
